@@ -634,6 +634,7 @@ export default function Index() {
   const [score, setScore] = useState(0);
   const [coins, setCoins] = useState(0);
   const [lives, setLives] = useState(3);
+  const touchRef = useRef<{ left: boolean; right: boolean; jump: boolean }>({ left: false, right: false, jump: false });
 
   const initGame = useCallback(() => {
     const g = gameRef.current!;
@@ -739,9 +740,10 @@ export default function Index() {
       const p = g.player;
 
       // ── Input ──
-      const left = g.keys['ArrowLeft'] || g.keys['a'] || g.keys['A'];
-      const right = g.keys['ArrowRight'] || g.keys['d'] || g.keys['D'];
-      const jump = g.keys['ArrowUp'] || g.keys['w'] || g.keys['W'] || g.keys[' '] || g.keys['Space'];
+      const touch = touchRef.current;
+      const left = g.keys['ArrowLeft'] || g.keys['a'] || g.keys['A'] || touch.left;
+      const right = g.keys['ArrowRight'] || g.keys['d'] || g.keys['D'] || touch.right;
+      const jump = g.keys['ArrowUp'] || g.keys['w'] || g.keys['W'] || g.keys[' '] || g.keys['Space'] || touch.jump;
 
       if (left) { p.vel.x -= 1.2; p.facingRight = false; }
       if (right) { p.vel.x += 1.2; p.facingRight = true; }
@@ -1126,6 +1128,65 @@ export default function Index() {
           </div>
         )}
       </div>
+
+      {/* Mobile Controls */}
+      {uiState === 'playing' && (
+        <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-6 pb-6 pointer-events-none md:hidden"
+          style={{ zIndex: 50 }}>
+          {/* Left / Right */}
+          <div className="flex gap-3 pointer-events-auto">
+            <button
+              onTouchStart={e => { e.preventDefault(); touchRef.current.left = true; }}
+              onTouchEnd={e => { e.preventDefault(); touchRef.current.left = false; }}
+              onMouseDown={() => { touchRef.current.left = true; }}
+              onMouseUp={() => { touchRef.current.left = false; }}
+              onMouseLeave={() => { touchRef.current.left = false; }}
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl select-none active:scale-90 transition-transform"
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(8px)',
+                border: '2px solid rgba(255,255,255,0.25)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                WebkitUserSelect: 'none',
+                touchAction: 'none',
+              }}
+            >◀</button>
+            <button
+              onTouchStart={e => { e.preventDefault(); touchRef.current.right = true; }}
+              onTouchEnd={e => { e.preventDefault(); touchRef.current.right = false; }}
+              onMouseDown={() => { touchRef.current.right = true; }}
+              onMouseUp={() => { touchRef.current.right = false; }}
+              onMouseLeave={() => { touchRef.current.right = false; }}
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl select-none active:scale-90 transition-transform"
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(8px)',
+                border: '2px solid rgba(255,255,255,0.25)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                WebkitUserSelect: 'none',
+                touchAction: 'none',
+              }}
+            >▶</button>
+          </div>
+
+          {/* Jump */}
+          <button
+            onTouchStart={e => { e.preventDefault(); touchRef.current.jump = true; }}
+            onTouchEnd={e => { e.preventDefault(); touchRef.current.jump = false; }}
+            onMouseDown={() => { touchRef.current.jump = true; }}
+            onMouseUp={() => { touchRef.current.jump = false; }}
+            onMouseLeave={() => { touchRef.current.jump = false; }}
+            className="w-20 h-20 rounded-full flex items-center justify-center text-3xl select-none active:scale-90 transition-transform pointer-events-auto"
+            style={{
+              background: 'linear-gradient(135deg, #FF6B35 0%, #FF1744 100%)',
+              boxShadow: '0 6px 24px rgba(255,23,68,0.5), 0 4px 0 #880E4F',
+              border: '2px solid rgba(255,255,255,0.3)',
+              WebkitUserSelect: 'none',
+              touchAction: 'none',
+            }}
+          >🅰</button>
+        </div>
+      )}
     </div>
   );
 }
