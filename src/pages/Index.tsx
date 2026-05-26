@@ -1,5 +1,120 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// ───────────── Audio Engine (Web Audio API, no files) ─────────────
+let audioCtx: AudioContext | null = null;
+
+function getAudioCtx(): AudioContext {
+  if (!audioCtx) audioCtx = new AudioContext();
+  return audioCtx;
+}
+
+function playSound(type: 'jump' | 'coin' | 'hit' | 'stomp' | 'powerup' | 'star' | 'death' | 'win') {
+  try {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    switch (type) {
+      case 'jump':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(300, t);
+        osc.frequency.exponentialRampToValueAtTime(600, t + 0.08);
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.start(t); osc.stop(t + 0.15);
+        break;
+
+      case 'coin': {
+        // Two-note ding
+        const o2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        o2.connect(g2); g2.connect(ctx.destination);
+        osc.type = 'sine'; o2.type = 'sine';
+        osc.frequency.setValueAtTime(988, t);
+        o2.frequency.setValueAtTime(1318, t + 0.08);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        g2.gain.setValueAtTime(0.18, t + 0.08); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.start(t); osc.stop(t + 0.12);
+        o2.start(t + 0.08); o2.stop(t + 0.25);
+        break;
+      }
+
+      case 'hit':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.1);
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.start(t); osc.stop(t + 0.12);
+        break;
+
+      case 'stomp':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, t);
+        osc.frequency.exponentialRampToValueAtTime(150, t + 0.1);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.start(t); osc.stop(t + 0.12);
+        break;
+
+      case 'powerup': {
+        // Rising arpeggio
+        osc.type = 'square';
+        const notes = [262, 330, 392, 523];
+        notes.forEach((freq, i) => {
+          osc.frequency.setValueAtTime(freq, t + i * 0.08);
+        });
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t); osc.stop(t + 0.4);
+        break;
+      }
+
+      case 'star': {
+        // Sparkle sweep
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.exponentialRampToValueAtTime(1760, t + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.3);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.start(t); osc.stop(t + 0.35);
+        break;
+      }
+
+      case 'death':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.5);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+        osc.start(t); osc.stop(t + 0.55);
+        break;
+
+      case 'win': {
+        // Victory fanfare
+        const fanfare = [523, 659, 784, 1047];
+        fanfare.forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = 'square';
+          o.frequency.setValueAtTime(freq, t + i * 0.12);
+          g.gain.setValueAtTime(0.15, t + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.2);
+          o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.22);
+        });
+        osc.stop(t); // don't use main osc
+        break;
+      }
+    }
+  } catch (_) { /* AudioContext not allowed yet */ }
+}
+
 // ───────────── Types ─────────────
 interface Vec2 { x: number; y: number }
 
@@ -769,6 +884,7 @@ export default function Index() {
       if (jump && p.onGround) {
         p.vel.y = JUMP_FORCE;
         p.onGround = false;
+        playSound('jump');
         spawnParticles(p.pos.x + 17, p.pos.y + 44, '#aaffaa', 5, 3);
       }
 
@@ -796,10 +912,12 @@ export default function Index() {
               p.pos.y = plat.y + plat.h; p.vel.y = 1;
               if (!plat.hit && (plat.hasCoin || plat.hasItem)) {
                 plat.hit = true; plat.hitAnim = 8;
+                playSound('hit');
                 if (plat.hasCoin) {
                   g.coinCount++; g.score += 100;
                   spawnParticles(plat.x + plat.w / 2, plat.y, '#ffd700', 10, 5);
                   setCoins(g.coinCount); setScore(g.score);
+                  playSound('coin');
                 }
                 if (plat.hasItem) {
                   g.items.push({ x: plat.x + plat.w / 2 - 18, y: plat.y - 38, vy: -2, type: plat.hasItem, collected: false, phase: g.tick * 0.06 });
@@ -820,6 +938,7 @@ export default function Index() {
         if (coin.collected) return;
         if (Math.abs(p.pos.x + pw / 2 - coin.x) < 22 && Math.abs(p.pos.y + ph / 2 - coin.y) < 22) {
           coin.collected = true; g.coinCount++; g.score += 200;
+          playSound('coin');
           spawnParticles(coin.x, coin.y, '#ffd700', 10, 5);
           setCoins(g.coinCount); setScore(g.score);
         }
@@ -839,8 +958,8 @@ export default function Index() {
         if (item.y > GROUND_Y) { item.y = GROUND_Y - 36; item.vy = 0; }
         if (Math.abs(p.pos.x + pw / 2 - (item.x + 18)) < 30 && Math.abs(p.pos.y + ph / 2 - (item.y + 18)) < 30) {
           item.collected = true;
-          if (item.type === 'mushroom') { p.powered = true; p.poweredTimer = 600; g.score += 500; spawnParticles(item.x, item.y, '#ff1744', 14, 6); }
-          else { p.starred = true; p.starTimer = 480; g.score += 1000; spawnParticles(item.x, item.y, '#ffd700', 18, 8); }
+          if (item.type === 'mushroom') { p.powered = true; p.poweredTimer = 600; g.score += 500; playSound('powerup'); spawnParticles(item.x, item.y, '#ff1744', 14, 6); }
+          else { p.starred = true; p.starTimer = 480; g.score += 1000; playSound('star'); spawnParticles(item.x, item.y, '#ffd700', 18, 8); }
           setScore(g.score);
         }
       });
@@ -876,16 +995,18 @@ export default function Index() {
           if (Math.abs(dx) < (pw / 2 + ew / 2 - 6) && Math.abs(dy) < (ph / 2 + eh / 2 - 4)) {
             if (p.starred) {
               e.alive = false; g.score += 300;
+              playSound('stomp');
               spawnParticles(e.x, e.y, '#ff6b6b', 12, 7);
               setScore(g.score);
             } else if (p.vel.y > 0 && p.pos.y + ph < e.y - 2) {
               e.stomped = true; e.stompTimer = 28;
               p.vel.y = -8; g.score += 300;
+              playSound('stomp');
               spawnParticles(e.x, e.y, '#ff6b6b', 12, 7);
               setScore(g.score);
             } else {
-              if (p.powered) { p.powered = false; p.invincible = 120; spawnParticles(p.pos.x + pw / 2, p.pos.y, '#ff4444', 10, 5); }
-              else { p.dead = true; p.vel.y = -10; g.lives--; setLives(g.lives); spawnParticles(p.pos.x + pw / 2, p.pos.y, '#ff4444', 16, 8); }
+              if (p.powered) { p.powered = false; p.invincible = 120; playSound('hit'); spawnParticles(p.pos.x + pw / 2, p.pos.y, '#ff4444', 10, 5); }
+              else { p.dead = true; p.vel.y = -10; g.lives--; setLives(g.lives); playSound('death'); spawnParticles(p.pos.x + pw / 2, p.pos.y, '#ff4444', 16, 8); }
             }
           }
         }
@@ -896,7 +1017,7 @@ export default function Index() {
       g.particles = g.particles.filter(pt => pt.life > 0);
 
       if (p.dead || p.pos.y > H + 80) { g.gameState = 'dead'; setUiState('dead'); return; }
-      if (p.pos.x > 3850) { g.gameState = 'win'; setUiState('win'); setScore(g.score); return; }
+      if (p.pos.x > 3850) { g.gameState = 'win'; setUiState('win'); setScore(g.score); playSound('win'); return; }
 
       // Camera — smooth lerp
       g.camX += (p.pos.x - W * 0.35 - g.camX) * 0.1;
